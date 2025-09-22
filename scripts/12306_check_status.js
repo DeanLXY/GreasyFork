@@ -2,7 +2,7 @@
 // @name         12306火车查询脚本
 // @namespace    http://tampermonkey.net/
 // @version      1.1.1
-// @description  尝试征服世界！
+// @description  12306火车查询脚本, 遇到未放票的车次，可以通过监控提醒您。
 // @author       Dean
 // @match        https://kyfw.12306.cn/otn/leftTicket/init*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
