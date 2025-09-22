@@ -723,6 +723,10 @@
 		localStorage.removeItem("train_list");
 		localStorage.removeItem("train_date");
 		log("配置已重置，请刷新页面以应用更改。");
+		// 500ms后刷新页面
+		setTimeout(() => {
+		window.location.reload();
+		}, 500);
 	}
 
 	// 开始查询火车信息
