@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         12306火车查询脚本
 // @namespace    http://tampermonkey.net/
-// @version      2025-09-11
+// @version      1.1.0
 // @description  尝试征服世界！
 // @author       Dean
 // @match        https://kyfw.12306.cn/otn/leftTicket/init*
