@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         12306火车查询脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.1.2
+// @version      1.1.3
 // @description  12306火车查询脚本, 遇到未放票的车次，可以通过监控提醒您。
 // @author       Dean
 // @match        https://kyfw.12306.cn/otn/leftTicket/init*
@@ -358,7 +358,7 @@
 					cursor: pointer;
 					transition: all 0.3s ease;
 					font-weight: bold;
-	}
+				}
 				.quick-train:hover {
 					background-color: #4CAF50;
 					color: white;
@@ -518,12 +518,12 @@
 		if (dateInput) {
 			dateInput.focus();
 			// 模拟点击事件以打开日期选择器
-			const event = new MouseEvent('click', {
-				view: window,
-				bubbles: true,
-				cancelable: true
-			});
-			dateInput.dispatchEvent(event);
+			// const event = new MouseEvent('click', {
+			// 	view: window,
+			// 	bubbles: true,
+			// 	cancelable: true
+			// });
+			// dateInput.dispatchEvent(event);
 
 			// 获取初始值
 			let lastValue = dateInput.value;
@@ -619,7 +619,7 @@
 		localStorage.setItem("train_date", dateOnly);
 		// 重定向问题修复，undefined
 
-	
+
 
 		// 更新监控信息显示
 		const fromStationText = document.getElementById("fromStationText");
@@ -770,27 +770,27 @@
 		// 获取页面当前显示的日期
 		const currentPageDate = trainDateInput.value;
 		const pageDate = currentPageDate ? currentPageDate.split(' ')[0] : '';
-		
+
 		// 获取保存的配置
-				const savedTrainDate = localStorage.getItem("train_date");
+		const savedTrainDate = localStorage.getItem("train_date");
 		const savedTrainList = JSON.parse(localStorage.getItem("train_list")) || [];
 
 		log(`页面显示日期: ${pageDate}, 监控配置日期: ${savedTrainDate}`, true);
-		
+
 		// 检查日期是否一致
 		if (savedTrainDate && pageDate && pageDate !== savedTrainDate) {
 			log(`⚠️ 检测到日期不一致！页面: ${pageDate}, 配置: ${savedTrainDate}`, true);
 			showInconsistencyAlert(pageDate, savedTrainDate, savedTrainList);
 			return false;
 		}
-		
+
 		// 检查是否有监控车次配置
 		if (!savedTrainList || savedTrainList.length === 0) {
 			log("⚠️ 未找到监控车次配置", true);
 			showNoConfigAlert();
 			return false;
 		}
-		
+
 		return true;
 	}
 
@@ -814,7 +814,7 @@
 			backdrop-filter: blur(10px);
 			border: 2px solid #ff5722;
 		`;
-		
+
 		alert.innerHTML = `
 			<div style="margin-bottom: 20px;">
 				<h2 style="color: #ffeb3b; margin-bottom: 15px;">⚠️ 日期不一致警告</h2>
@@ -860,24 +860,24 @@
 				">重新配置</button>
 			</div>
 		`;
-		
+
 		document.body.appendChild(alert);
-		
+
 		// 使用页面日期
 		document.getElementById("use-page-date").addEventListener("click", () => {
 			train_date = pageDate;
 			localStorage.setItem("train_date", pageDate);
 			log(`已更新监控日期为页面日期: ${pageDate}`, true);
 			alert.remove();
-					continueInitialization();
+			continueInitialization();
 		});
-		
+
 		// 跳转到配置日期
 		document.getElementById("redirect-to-config").addEventListener("click", () => {
 			alert.remove();
 			redirectToConfigDate(configDate, trainList);
 		});
-		
+
 		// 重新配置
 		document.getElementById("reconfig-all").addEventListener("click", () => {
 			alert.remove();
@@ -905,7 +905,7 @@
 			backdrop-filter: blur(10px);
 			border: 2px solid #ff9800;
 		`;
-		
+
 		alert.innerHTML = `
 			<div style="margin-bottom: 20px;">
 				<h2 style="color: #ffeb3b; margin-bottom: 15px;">📋 未找到监控配置</h2>
@@ -925,20 +925,20 @@
 				transition: all 0.3s ease;
 			">开始配置</button>
 		`;
-		
+
 		document.body.appendChild(alert);
-		
+
 		document.getElementById("start-config").addEventListener("click", () => {
 			alert.remove();
-					createDateReminder();
-					triggerDatePicker();
+			createDateReminder();
+			triggerDatePicker();
 		});
-				}
+	}
 
 	// 重定向到配置的日期
 	function redirectToConfigDate(targetDate, trainList) {
 		log(`正在跳转到配置日期: ${targetDate}`, true);
-		
+
 		// 显示跳转提示
 		const loadingAlert = document.createElement("div");
 		loadingAlert.style.cssText = `
@@ -968,32 +968,47 @@
 			</style>
 		`;
 		document.body.appendChild(loadingAlert);
-		
-		// 构建重定向URL
+
+		// 获取当前URL参数
 		const currentUrl = new URL(window.location.href);
-		const fromStation = document.getElementById("fromStationText")?.value || '';
-		const toStation = document.getElementById("toStationText")?.value || '';
-		
-		// 获取车站代码（从隐藏字段或其他方式）
-		const fromStationCode = document.getElementById("fromStation")?.value || '';
-		const toStationCode = document.getElementById("toStation")?.value || '';
-		
+		const urlParams = new URLSearchParams(currentUrl.search);
+
+		// 获取出发站和到达站信息
+		let fromStationParam = urlParams.get('fs') || '';
+		let toStationParam = urlParams.get('ts') || '';
+
+		// 如果URL参数中没有车站信息，尝试从页面元素获取
+		if (!fromStationParam || !toStationParam) {
+			const fromStationText = document.getElementById("fromStationText")?.value || '';
+			const toStationText = document.getElementById("toStationText")?.value || '';
+			const fromStationCode = document.getElementById("fromStation")?.value || '';
+			const toStationCode = document.getElementById("toStation")?.value || '';
+
+			// 构建车站参数格式：站名,代码
+			if (fromStationText && fromStationCode) {
+				fromStationParam = `${encodeURIComponent(fromStationText)},${fromStationCode}`;
+			}
+			if (toStationText && toStationCode) {
+				toStationParam = `${encodeURIComponent(toStationText)},${toStationCode}`;
+			}
+		}
+
 		// 构建新的URL参数
 		const params = new URLSearchParams();
-		params.set('leftTicketDTO.train_date', targetDate);
-		if (fromStationCode) params.set('leftTicketDTO.from_station', fromStationCode);
-		if (toStationCode) params.set('leftTicketDTO.to_station', toStationCode);
-		params.set('purpose_codes', 'ADULT');
-		
-		const redirectUrl = `${currentUrl.origin}${currentUrl.pathname}?${params.toString()}`;
-		
+		params.set('linktypeid', urlParams.get('linktypeid') || 'dc');
+		if (fromStationParam) params.set('fs', fromStationParam);
+		if (toStationParam) params.set('ts', toStationParam);
+		params.set('date', targetDate);
+		params.set('flag', urlParams.get('flag') || 'N,N,Y');
+		const redirectUrl = `${currentUrl.origin}${currentUrl.pathname}?${decodeURIComponent(params.toString())}`;
+
 		log(`重定向URL: ${redirectUrl}`, true);
-		
+
 		// 延迟跳转，让用户看到提示
 		setTimeout(() => {
 			window.location.href = redirectUrl;
 		}, 1500);
-		}
+	}
 
 	// 修改主函数，添加一致性检查
 	function main() {
@@ -1010,7 +1025,7 @@
 			if (currentDateValue) {
 				const dateOnly = currentDateValue.split(' ')[0];
 				log(`检测到页面当前日期: ${currentDateValue}, 提取日期: ${dateOnly}`);
-	}
+			}
 
 			// 检查是否是首次访问
 			if (!localStorage.getItem("12306_first_visit")) {
@@ -1024,12 +1039,13 @@
 					// 一致性检查通过，加载配置并继续
 					const savedTrainList = JSON.parse(localStorage.getItem("train_list"));
 					const savedTrainDate = localStorage.getItem("train_date");
-					
+
 					train_list = savedTrainList;
 					train_date = savedTrainDate;
-					
+
 					log("配置一致性检查通过，继续监控", true);
 					continueInitialization();
+					triggerDatePicker();
 				}
 				// 如果一致性检查失败，相应的提醒已经在checkPageConsistency中显示
 			}
