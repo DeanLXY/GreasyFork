@@ -74,6 +74,8 @@
 					log("已查询到指定车次，定时逻辑关闭。如需重新开启，请刷新页面...");
 					clearInterval(intervalId);
 					// }
+				} else {
+					log("");
 				}
 			}
 		}
@@ -128,18 +130,6 @@
 		}
 	};
 
-	var shotToast = function (message) {
-		var toastContainer = document.getElementById("message-container");
-		if (toastContainer) {
-			toastContainer.updateContentAndScrollToTop(
-				`<div>${message}</div><br/>` + toastContainer.innerHTML
-			);
-		}
-	};
-	var log = function (log, showData = false) {
-		console.log(new Date().toTimeString() + ": ", log);
-		shotToast(showData ? new Date().toTimeString() + ": " + log : log);
-	};
 
 	var sendStrongMessage = function (message) {
 		setInterval(() => sendMessage("12306强提醒", message), 10000);
@@ -171,74 +161,6 @@
 		}
 	};
 
-	var createToastContainer = function () {
-		var toastContainer = document.createElement("div");
-		toastContainer.id = "toast-container";
-		toastContainer.style.position = "fixed";
-		toastContainer.style.width = "500px";
-		toastContainer.style.top = "20px";
-		toastContainer.style.right = "20px";
-		toastContainer.style.zIndex = "9999";
-		toastContainer.style.padding = "10px";
-		toastContainer.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
-		toastContainer.style.borderRadius = "5px";
-		toastContainer.style.backgroundColor = "rgba(60,60,60,0.9)";
-		toastContainer.style.color = "#fff";
-		toastContainer.style.fontFamily = "Arial, sans-serif";
-		toastContainer.style.fontSize = "14px";
-		toastContainer.innerHTML = `<div><H1>12306火车票监控预警已启动<H1><br/></div>`;
-		document.body.appendChild(toastContainer);
-	};
-
-	var createMessageContainer = function () {
-		var toastContainer = document.createElement("div");
-		toastContainer.id = "message-container";
-		toastContainer.style.position = "fixed";
-		toastContainer.style.width = "500px";
-		toastContainer.style.top = "160px";
-		toastContainer.style.right = "20px";
-		toastContainer.style.zIndex = "9999";
-		toastContainer.style.padding = "10px";
-		toastContainer.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
-		toastContainer.style.borderRadius = "5px";
-		toastContainer.style.backgroundColor = "rgba(60,60,60,0.9)";
-		toastContainer.style.color = "#fff";
-		toastContainer.style.fontFamily = "Arial, sans-serif";
-		toastContainer.style.fontSize = "14px";
-		toastContainer.style.overflowY = "auto"; // 添加这一行来实现垂直滚动
-		toastContainer.style.maxHeight = "80%"; // 设置最大高度，超过这个高度就会显示滚动条
-		document.body.appendChild(toastContainer);
-
-		// 定义一个方法来更新innerHTML并滚动到顶部
-		toastContainer.updateContentAndScrollToTop = function (htmlContent) {
-			this.innerHTML = htmlContent;
-			this.scrollTop = 0; // 滚动到顶部
-		};
-	};
-
-	var startCheckSelDate = function () {
-		document.title = "12306火车票监控预警已启动";
-		document.querySelector("link[rel*='icon']").type = "image/svg+xml";
-		document.querySelector("link[rel*='icon']").href =
-			'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" /></svg>';
-		createToastContainer();
-		createMessageContainer();
-
-		var fromStationText = document.getElementById("fromStationText");
-		var toStationText = document.getElementById("toStationText");
-		var train_date_input = document.getElementById("train_date");
-		if (train_date_input && fromStationText && toStationText) {
-			train_date_input.value = train_date;
-			var value = train_date_input.value;
-			var toastContainer = document.getElementById('toast-container')
-			if (toastContainer) {
-				toastContainer.innerHTML = toastContainer.innerHTML + `监控车次： 由${fromStationText.value} 发往 ${toStationText.value}的${train_list}<br/> 监听日期： ${value}<br/><p>间隔时长： ${DEFAULT_INTERVAL / 60000}分钟</p>`
-			}
-		} else {
-			log("监控车次的日期错误，请检查后重试...❌❌❌");
-			sendMessage("12306监控车次异常", "监控车次的日期错误，请检查后重试...❌❌❌");
-		}
-	};
 
 	const validCheckTrainStart = function () {
 		var currentHour = new Date().getHours();
@@ -448,24 +370,24 @@
 				}
 			</style>
 			`;
-		
+
 		document.body.appendChild(selector);
-		
+
 		// 添加快选按钮事件
 		const quickButtons = selector.querySelectorAll('.quick-train');
 		const trainInput = document.getElementById('train-input');
-		
+
 		quickButtons.forEach(button => {
 			button.addEventListener('click', () => {
 				const trainNumber = button.dataset.train;
 				const currentValue = trainInput.value.trim();
-				
+
 				if (button.classList.contains('selected')) {
 					// 取消选择
 					button.classList.remove('selected');
 					const trains = currentValue.split(',').map(t => t.trim()).filter(t => t !== trainNumber);
 					trainInput.value = trains.join(',');
-		} else {
+				} else {
 					// 添加选择
 					button.classList.add('selected');
 					if (currentValue) {
@@ -473,11 +395,11 @@
 						if (!trains.includes(trainNumber)) {
 							trains.push(trainNumber);
 							trainInput.value = trains.join(',');
-		}
-		} else {
+						}
+					} else {
 						trainInput.value = trainNumber;
-		}
-	}
+					}
+				}
 			});
 		});
 
@@ -488,9 +410,9 @@
 				const trainNumber = button.dataset.train.toUpperCase();
 				if (inputTrains.includes(trainNumber)) {
 					button.classList.add('selected');
-			} else {
+				} else {
 					button.classList.remove('selected');
-			}
+				}
 			});
 		});
 
@@ -501,28 +423,28 @@
 				alert('请输入至少一个车次号！');
 				return;
 			}
-			
+
 			const selectedTrains = inputValue.split(',')
 				.map(train => train.trim().toUpperCase())
 				.filter(train => train.length > 0);
-			
+
 			if (selectedTrains.length === 0) {
 				alert('请输入有效的车次号！');
 				return;
 			}
-			
+
 			// 保存选择的车次
 			train_list = selectedTrains;
 			localStorage.setItem("train_list", JSON.stringify(selectedTrains));
-			
+
 			// 移除选择界面
 			selector.remove();
-			
+
 			// 继续初始化流程
 			log(`已选择监控车次: ${selectedTrains.join(', ')}`);
 			continueInitialization();
 		});
-		
+
 		// 取消按钮事件
 		document.getElementById('cancel-trains').addEventListener('click', () => {
 			selector.remove();
@@ -578,6 +500,7 @@
 		if (fromStationText && toStationText && trainDateInput) {
 			updateMonitorInfo(fromStationText.value, toStationText.value, trainDateInput.value);
 			updateTrainList(train_list);
+			updateMonitorDate(trainDateInput.value);
 			log(`监控已启动,正在查询指定车次`, true);
 			validCheckTrainStart()(train_list);
 			intervalId = setInterval(() => {
@@ -599,37 +522,122 @@
 				view: window,
 				bubbles: true,
 				cancelable: true
-	});
+			});
 			dateInput.dispatchEvent(event);
 
-			// 添加日期变更监听
-			dateInput.addEventListener('change', function () {
-				updateMonitorDate(this.value);
+			// 获取初始值
+			let lastValue = dateInput.value;
+			log(`初始日期值: ${lastValue}`);
+
+			// 使用多种事件监听方式
+			const handleDateChange = function (eventType) {
+				const newValue = this.value;
+				console.log(`${eventType} 事件触发，当前值: ${newValue}, 上次值: ${lastValue}`);
+				if (newValue && newValue !== lastValue) {
+					log(`检测到日期变更 (${eventType}): ${lastValue} -> ${newValue}`);
+					lastValue = newValue;
+					// 提取日期部分（去掉星期）
+					const dateOnly = newValue.split(' ')[0];
+					updateMonitorDate(dateOnly);
+				}
+			};
+
+			// 添加多种事件监听
+			dateInput.addEventListener('change', function () { handleDateChange.call(this, 'change'); });
+
+			// 监听整个文档的点击事件，可能日期选择器会触发
+			document.addEventListener('click', function (e) {
+				// 延迟检查，因为日期选择器可能需要时间更新值
+				setTimeout(() => {
+					const currentValue = dateInput.value;
+					if (currentValue !== lastValue && currentValue) {
+						log(`通过文档点击检测到日期变更: ${lastValue} -> ${currentValue}`);
+						lastValue = currentValue;
+						const dateOnly = currentValue.split(' ')[0];
+						updateMonitorDate(dateOnly);
+					}
+				}, 100);
 			});
+
+			// 使用 MutationObserver 监听属性和子节点变化
+			const observer = new MutationObserver(function (mutations) {
+				mutations.forEach(function (mutation) {
+					if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+						const newValue = dateInput.value;
+						if (newValue && newValue !== lastValue) {
+							log(`通过属性监听检测到日期变更: ${lastValue} -> ${newValue}`);
+							lastValue = newValue;
+							const dateOnly = newValue.split(' ')[0];
+							updateMonitorDate(dateOnly);
+						}
+					}
+				});
+			});
+
+			observer.observe(dateInput, {
+				attributes: true,
+				attributeFilter: ['value'],
+				childList: true,
+				subtree: true
+			});
+
+			// 定时检查值变化（作为备用方案）
+			const checkInterval = setInterval(() => {
+				const currentValue = dateInput.value;
+				if (currentValue !== lastValue && currentValue) {
+					log(`通过定时检查检测到日期变更: ${lastValue} -> ${currentValue}`);
+					lastValue = currentValue;
+					const dateOnly = currentValue.split(' ')[0];
+					updateMonitorDate(dateOnly);
+				}
+			}, 500); // 缩短检查间隔到500ms
+
+			// 5分钟后清除定时检查（避免无限运行）
+			setTimeout(() => {
+				clearInterval(checkInterval);
+				observer.disconnect();
+			}, 300000);
+
+			log("已设置日期变更监听（多种方式）");
 		}
 	}
 
 	// 更新监控日期并刷新页面
 	function updateMonitorDate(newDate) {
-		train_date = newDate; // 更新全局变量
+		// 提取纯日期部分，去掉可能的星期信息
+		const dateOnly = newDate.split(' ')[0];
+
+		if (dateOnly === train_date) {
+			return; // 避免重复更新
+		}
+
+		const oldDate = train_date;
+		train_date = dateOnly; // 更新全局变量
+		log(`日期更新: ${oldDate} -> ${dateOnly}`);
 
 		// 更新localStorage中的日期
-		localStorage.setItem("train_date", newDate);
+		localStorage.setItem("train_date", dateOnly);
+		// 重定向问题修复，undefined
+
+	
 
 		// 更新监控信息显示
 		const fromStationText = document.getElementById("fromStationText");
 		const toStationText = document.getElementById("toStationText");
-		updateMonitorInfo(fromStationText.value, toStationText.value, newDate);
+		if (fromStationText && toStationText) {
+			updateMonitorInfo(fromStationText.value, toStationText.value, dateOnly);
+		}
 
 		// 立即执行一次查询
-		log(`日期已更新为 ${newDate}，正在刷新查询...`);
-		validCheckTrainStart()(JSON.parse(localStorage.getItem("train_list")) || train_list);
+		log(`日期已更新为 ${dateOnly}，正在刷新查询...`);
+		const savedTrainList = JSON.parse(localStorage.getItem("train_list")) || train_list;
+		if (savedTrainList && savedTrainList.length > 0) {
+			validCheckTrainStart()(savedTrainList);
+		}
 
 		// 更新下次刷新时间
 		updateNextRefreshTime();
 
-		// 可选：如果你想重新加载整个页面，可以取消下面这行的注释
-		// window.location.href = new URL(window.location.href).searchParams.set('date', newDate).toString();
 	}
 
 	// 更新监控信息
@@ -675,6 +683,9 @@
 
 	// 优化日志显示
 	function log(message, showTimestamp = true) {
+		if (!message) {
+			return;
+		}
 		const logContainer = document.getElementById("log-container");
 		if (!logContainer) {
 			console.error("Log container not found");
@@ -701,20 +712,19 @@
 
 		// 触发动画
 		setTimeout(() => {
+
 			logEntry.style.transition = "all 0.3s ease";
 			logEntry.style.opacity = "1";
 			logEntry.style.transform = "translateY(0)";
 		}, 50);
 
 		// 限制日志条目数量，保持最新的20条
-		while (logContainer.children.length > 20) {
+		while (logContainer.children.length > 5) {
 			logContainer.removeChild(logContainer.lastChild);
 		}
 
 		// 自动滚动到顶部
 		logContainer.scrollTop = 0;
-
-		console.log(message);
 	}
 
 	// 重置配置函数
@@ -725,7 +735,7 @@
 		log("配置已重置，请刷新页面以应用更改。");
 		// 500ms后刷新页面
 		setTimeout(() => {
-		window.location.reload();
+			window.location.reload();
 		}, 500);
 	}
 
@@ -746,34 +756,282 @@
 		updateNextRefreshTime();
 	}
 
-	// 主函数
-	function main(trainList) {
+	// 检查页面状态与配置是否一致
+	function checkPageConsistency() {
+		const fromStationText = document.getElementById("fromStationText");
+		const toStationText = document.getElementById("toStationText");
+		const trainDateInput = document.getElementById("train_date");
+
+		if (!fromStationText || !toStationText || !trainDateInput) {
+			log("页面元素未找到，无法检查一致性", true);
+			return false;
+		}
+
+		// 获取页面当前显示的日期
+		const currentPageDate = trainDateInput.value;
+		const pageDate = currentPageDate ? currentPageDate.split(' ')[0] : '';
+		
+		// 获取保存的配置
+				const savedTrainDate = localStorage.getItem("train_date");
+		const savedTrainList = JSON.parse(localStorage.getItem("train_list")) || [];
+
+		log(`页面显示日期: ${pageDate}, 监控配置日期: ${savedTrainDate}`, true);
+		
+		// 检查日期是否一致
+		if (savedTrainDate && pageDate && pageDate !== savedTrainDate) {
+			log(`⚠️ 检测到日期不一致！页面: ${pageDate}, 配置: ${savedTrainDate}`, true);
+			showInconsistencyAlert(pageDate, savedTrainDate, savedTrainList);
+			return false;
+		}
+		
+		// 检查是否有监控车次配置
+		if (!savedTrainList || savedTrainList.length === 0) {
+			log("⚠️ 未找到监控车次配置", true);
+			showNoConfigAlert();
+			return false;
+		}
+		
+		return true;
+	}
+
+	// 显示不一致提醒并提供选择
+	function showInconsistencyAlert(pageDate, configDate, trainList) {
+		const alert = document.createElement("div");
+		alert.id = "inconsistency-alert";
+		alert.style.cssText = `
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background-color: rgba(255, 87, 34, 0.95);
+			color: #fff;
+			padding: 30px;
+			border-radius: 15px;
+			text-align: center;
+			z-index: 10002;
+			min-width: 450px;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 2px solid #ff5722;
+		`;
+		
+		alert.innerHTML = `
+			<div style="margin-bottom: 20px;">
+				<h2 style="color: #ffeb3b; margin-bottom: 15px;">⚠️ 日期不一致警告</h2>
+				<div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+					<p style="margin: 5px 0;"><strong>页面显示日期:</strong> ${pageDate}</p>
+					<p style="margin: 5px 0;"><strong>监控配置日期:</strong> ${configDate}</p>
+					<p style="margin: 5px 0;"><strong>监控车次:</strong> ${trainList.join(', ')}</p>
+				</div>
+				<p style="color: #ffcdd2; font-size: 14px;">
+					页面日期与监控配置不一致，可能导致监控错误！
+				</p>
+			</div>
+			<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+				<button id="use-page-date" style="
+					padding: 12px 20px;
+					background-color: #4CAF50;
+					color: white;
+					border: none;
+					border-radius: 8px;
+					cursor: pointer;
+					font-weight: bold;
+					transition: all 0.3s ease;
+				">使用页面日期 (${pageDate})</button>
+				<button id="redirect-to-config" style="
+					padding: 12px 20px;
+					background-color: #2196F3;
+					color: white;
+					border: none;
+					border-radius: 8px;
+					cursor: pointer;
+					font-weight: bold;
+					transition: all 0.3s ease;
+				">跳转到配置日期 (${configDate})</button>
+				<button id="reconfig-all" style="
+					padding: 12px 20px;
+					background-color: #9C27B0;
+					color: white;
+					border: none;
+					border-radius: 8px;
+					cursor: pointer;
+					font-weight: bold;
+					transition: all 0.3s ease;
+				">重新配置</button>
+			</div>
+		`;
+		
+		document.body.appendChild(alert);
+		
+		// 使用页面日期
+		document.getElementById("use-page-date").addEventListener("click", () => {
+			train_date = pageDate;
+			localStorage.setItem("train_date", pageDate);
+			log(`已更新监控日期为页面日期: ${pageDate}`, true);
+			alert.remove();
+					continueInitialization();
+		});
+		
+		// 跳转到配置日期
+		document.getElementById("redirect-to-config").addEventListener("click", () => {
+			alert.remove();
+			redirectToConfigDate(configDate, trainList);
+		});
+		
+		// 重新配置
+		document.getElementById("reconfig-all").addEventListener("click", () => {
+			alert.remove();
+			resetConfig();
+		});
+	}
+
+	// 显示无配置提醒
+	function showNoConfigAlert() {
+		const alert = document.createElement("div");
+		alert.id = "no-config-alert";
+		alert.style.cssText = `
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background-color: rgba(255, 152, 0, 0.95);
+			color: #fff;
+			padding: 30px;
+			border-radius: 15px;
+			text-align: center;
+			z-index: 10002;
+			min-width: 400px;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 2px solid #ff9800;
+		`;
+		
+		alert.innerHTML = `
+			<div style="margin-bottom: 20px;">
+				<h2 style="color: #ffeb3b; margin-bottom: 15px;">📋 未找到监控配置</h2>
+				<p style="color: #fff3e0; margin-bottom: 15px;">
+					系统未找到保存的监控车次配置，请重新设置监控参数。
+				</p>
+			</div>
+			<button id="start-config" style="
+				padding: 12px 24px;
+				background-color: #4CAF50;
+				color: white;
+				border: none;
+				border-radius: 8px;
+				cursor: pointer;
+				font-weight: bold;
+				font-size: 16px;
+				transition: all 0.3s ease;
+			">开始配置</button>
+		`;
+		
+		document.body.appendChild(alert);
+		
+		document.getElementById("start-config").addEventListener("click", () => {
+			alert.remove();
+					createDateReminder();
+					triggerDatePicker();
+		});
+				}
+
+	// 重定向到配置的日期
+	function redirectToConfigDate(targetDate, trainList) {
+		log(`正在跳转到配置日期: ${targetDate}`, true);
+		
+		// 显示跳转提示
+		const loadingAlert = document.createElement("div");
+		loadingAlert.style.cssText = `
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background-color: rgba(33, 150, 243, 0.95);
+			color: #fff;
+			padding: 20px;
+			border-radius: 10px;
+			text-align: center;
+			z-index: 10003;
+			backdrop-filter: blur(10px);
+		`;
+		loadingAlert.innerHTML = `
+			<h3>🔄 正在跳转...</h3>
+			<p>跳转到监控日期: ${targetDate}</p>
+			<div style="margin-top: 10px;">
+				<div style="width: 30px; height: 30px; border: 3px solid #fff; border-top: 3px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+			</div>
+			<style>
+				@keyframes spin {
+					0% { transform: rotate(0deg); }
+					100% { transform: rotate(360deg); }
+			}
+			</style>
+		`;
+		document.body.appendChild(loadingAlert);
+		
+		// 构建重定向URL
+		const currentUrl = new URL(window.location.href);
+		const fromStation = document.getElementById("fromStationText")?.value || '';
+		const toStation = document.getElementById("toStationText")?.value || '';
+		
+		// 获取车站代码（从隐藏字段或其他方式）
+		const fromStationCode = document.getElementById("fromStation")?.value || '';
+		const toStationCode = document.getElementById("toStation")?.value || '';
+		
+		// 构建新的URL参数
+		const params = new URLSearchParams();
+		params.set('leftTicketDTO.train_date', targetDate);
+		if (fromStationCode) params.set('leftTicketDTO.from_station', fromStationCode);
+		if (toStationCode) params.set('leftTicketDTO.to_station', toStationCode);
+		params.set('purpose_codes', 'ADULT');
+		
+		const redirectUrl = `${currentUrl.origin}${currentUrl.pathname}?${params.toString()}`;
+		
+		log(`重定向URL: ${redirectUrl}`, true);
+		
+		// 延迟跳转，让用户看到提示
+		setTimeout(() => {
+			window.location.href = redirectUrl;
+		}, 1500);
+		}
+
+	// 修改主函数，添加一致性检查
+	function main() {
 		createMonitorPanel();
+		log("12306监控脚本已启动", true);
+
 		const fromStationText = document.getElementById("fromStationText");
 		const toStationText = document.getElementById("toStationText");
 		const trainDateInput = document.getElementById("train_date");
 
 		if (fromStationText && toStationText && trainDateInput) {
-			// 检查是否是首次访问或配置已重置
+			// 获取当前页面的日期值并处理格式
+			const currentDateValue = trainDateInput.value;
+			if (currentDateValue) {
+				const dateOnly = currentDateValue.split(' ')[0];
+				log(`检测到页面当前日期: ${currentDateValue}, 提取日期: ${dateOnly}`);
+	}
+
+			// 检查是否是首次访问
 			if (!localStorage.getItem("12306_first_visit")) {
+				log("首次访问，请配置监控参数", true);
 				createDateReminder();
 				triggerDatePicker();
 				localStorage.setItem("12306_first_visit", "true");
 			} else {
-				// 从 localStorage 加载配置
-				const savedTrainList = JSON.parse(localStorage.getItem("train_list"));
-				const savedTrainDate = localStorage.getItem("train_date");
-				
-				if (savedTrainList && savedTrainList.length > 0) {
+				// 检查页面状态与配置的一致性
+				if (checkPageConsistency()) {
+					// 一致性检查通过，加载配置并继续
+					const savedTrainList = JSON.parse(localStorage.getItem("train_list"));
+					const savedTrainDate = localStorage.getItem("train_date");
+					
 					train_list = savedTrainList;
-					train_date = savedTrainDate || train_date;
-					trainDateInput.value = train_date;
+					train_date = savedTrainDate;
+					
+					log("配置一致性检查通过，继续监控", true);
 					continueInitialization();
-				} else {
-					// 如果没有保存的车次，重新选择
-					createDateReminder();
-					triggerDatePicker();
 				}
+				// 如果一致性检查失败，相应的提醒已经在checkPageConsistency中显示
 			}
 		} else {
 			log("获取车站信息失败,请检查页面是否正确加载", true);
@@ -782,6 +1040,6 @@
 
 	// 确保在页面加载完成后再执行脚本
 	window.addEventListener('load', () => {
-		main(train_list);
+		main();
 	});
 })();
