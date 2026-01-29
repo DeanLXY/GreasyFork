@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Git仓库一键跳转HPX
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.5
 // @description  在Git仓库页面添加跳转到HPX打包页面的按钮
 // @author       Dean
 // @match        https://dev.sankuai.com/code/repo-detail/*
@@ -12,13 +12,41 @@
 (function() {
     'use strict';
 
+    // 常量定义
+    const CONFIG = {
+        SITE_URL: 'dev.sankuai.com/code/repo-detail',
+        API_ENDPOINT: 'https://hpx.sankuai.com/api/open/getProjectUrlList',
+        CACHE_KEY: 'HPX_PROJECT_CACHE',
+        CACHE_EXPIRE: 24 * 60 * 60 * 1000, // 24小时
+        BUTTON_ID: 'zy_hpx_button',
+        CONTAINER_SELECTOR: '.btn-box',
+        DEBOUNCE_DELAY: 300
+    };
+
+    // 防抖函数
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    };
+
     // 添加样式
     const style = document.createElement('style');
     style.textContent = `
-        #zy_hpx_button {
-            margin-right: 8px;
+        #${CONFIG.BUTTON_ID} {
+            margin-right: 0.5rem;
             position: relative;
             overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        #${CONFIG.BUTTON_ID}:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        #${CONFIG.BUTTON_ID}:active {
+            transform: translateY(0);
         }
         .mtd-button-content {
             display: flex;
@@ -28,7 +56,22 @@
             z-index: 2;
         }
         .mtdicon-fast-forward {
-            margin-right: 4px;
+            margin-right: 0.25rem;
+        }
+
+        /* 加载动画 */
+        .btn-loading .mtd-button-content::after {
+            content: '';
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            margin-left: 0.5rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* 节日装饰样式 */
@@ -38,52 +81,52 @@
             font-size: 12px;
             z-index: 1;
         }
-
-        /* 春节样式 */
         .spring-festival .festival-icon {
             animation: springFestival 2s infinite;
         }
-
-        /* 圣诞节样式 */
         .christmas .festival-icon {
             animation: snowfall 3s infinite;
         }
-
-        /* 万圣节样式 */
         .halloween .festival-icon {
             animation: spooky 3s infinite;
         }
-
-        /* 元宵节样式 */
         .lantern-festival .festival-icon {
             animation: floating 3s infinite;
         }
 
-        /* 动画效果 */
         @keyframes springFestival {
             0% { transform: scale(1) rotate(0deg); opacity: 1; }
             50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; }
             100% { transform: scale(1) rotate(360deg); opacity: 1; }
         }
-
         @keyframes snowfall {
             0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
             100% { transform: translateY(100%) rotate(360deg); opacity: 0; }
         }
-
         @keyframes spooky {
             0% { transform: translateX(-20px) translateY(0); opacity: 1; }
             50% { transform: translateX(20px) translateY(-10px); opacity: 0.7; }
             100% { transform: translateX(-20px) translateY(0); opacity: 1; }
         }
-
         @keyframes floating {
             0% { transform: translateY(0) rotate(-5deg); }
             50% { transform: translateY(-10px) rotate(5deg); }
             100% { transform: translateY(0) rotate(-5deg); }
         }
 
-        /* 光效装饰 */
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            #${CONFIG.BUTTON_ID} {
+                margin-right: 0.25rem;
+                padding: 0.5rem 0.75rem;
+                font-size: 0.875rem;
+            }
+            .mtd-button-content span:last-child {
+                display: none;
+            }
+        }
+
+        /* 节日光效 */
         .festival-sparkle {
             position: absolute;
             width: 100%;
@@ -106,7 +149,6 @@
         .festival-sparkle::after {
             animation-delay: 1s;
         }
-
         @keyframes sparkle {
             0%, 100% { transform: translate(0, 0) scale(0); opacity: 0; }
             50% { transform: translate(20px, -20px) scale(1); opacity: 1; }
@@ -114,172 +156,111 @@
     `;
     document.head.appendChild(style);
 
-    // 页面加载完成后执行
-    if (window.location.toString().indexOf('dev.sankuai.com/code/repo-detail') >= 0) {
-        // 使用 MutationObserver 监听DOM变化
-        const observer = new MutationObserver((mutations, observer) => {
-            if ($(".btn-box").length > 0 && $("#zy_hpx_button").length === 0) {
-                logger('检测到按钮容器');
-                observer.disconnect(); // 停止观察
-                inject(() => {});
-            }
-        });
+    // 日志函数
+    const logger = (log) => console.log("[Go to HPX]", log);
 
-        // 立即检查是否已存在按钮容器
-        if ($(".btn-box").length > 0) {
-            logger('按钮容器已存在');
-            inject(() => {});
-        } else {
-            logger('等待按钮容器');
-            // 开始观察
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        }
+    // 判断是否在目标页面
+    const isTargetPage = () => window.location.href.includes(CONFIG.SITE_URL);
 
-        // 添加页面 URL 变化监听
-        let lastUrl = location.href;
-        new MutationObserver(() => {
-            const url = location.href;
-            if (url !== lastUrl) {
-                lastUrl = url;
-                logger('URL 发生变化');
-                if (url.indexOf('dev.sankuai.com/code/repo-detail') >= 0) {
-                    inject(() => {});
-                }
-            }
-        }).observe(document, {subtree: true, childList: true});
-    }
-
-    // 缓存键名
-    const CACHE_KEY = 'HPX_PROJECT_CACHE';
-    const CACHE_EXPIRE = 24 * 60 * 60 * 1000; // 24小时缓存
-
-    // 获取缓存的项目数据
-    function getCachedProject(git) {
+    // 获取缓存数据
+    const getCachedProject = (git) => {
         try {
-            const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+            const cache = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '{}');
             const data = cache[git];
-            if (data && (Date.now() - data.timestamp) < CACHE_EXPIRE) {
+            if (data && (Date.now() - data.timestamp) < CONFIG.CACHE_EXPIRE) {
                 return data.project;
             }
         } catch (e) {
             logger('读取缓存失败', e);
         }
         return null;
-    }
+    };
 
-    // 设置项目缓存
-    function setCachedProject(git, project) {
+    // 设置缓存数据
+    const setCachedProject = (git, project) => {
         try {
-            const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-            cache[git] = {
-                project: project,
-                timestamp: Date.now()
-            };
-            localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+            const cache = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '{}');
+            cache[git] = { project, timestamp: Date.now() };
+            localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(cache));
         } catch (e) {
             logger('设置缓存失败', e);
         }
-    }
+    };
 
-    // 入侵
-    function inject(callback) {
-        if ($(".btn-box").length <= 0) {
-            logger('没有查到元素');
-            return false;
-        }
-        logger('查到元素');
+    // 获取Git地址
+    const getGitAddress = () => {
+        return new Promise((resolve) => {
+            const str = CONFIG.SITE_URL;
+            const index = window.location.href.indexOf(str);
+            const reset = window.location.href.substring(index + str.length);
+            const components = reset.split('/');
 
-        // 先渲染一个加载中的按钮
-        renderLoadingButton();
-
-        // 查询git地址
-        getGitAddress(function(git) {
-            if (git.length <= 0) {
-                removeButton();
-                callback(true);
-                return;
-            }
-
-            // 先检查缓存
-            const cachedProject = getCachedProject(git);
-            if (cachedProject) {
-                logger('使用缓存数据');
-                renderHPXButton(cachedProject);
-                callback(true);
-
-                // 异步更新缓存
-                updateProjectCache(git);
-                return;
-            }
-
-            // 无缓存时请求新数据
-            requestProjectData(git, callback);
-        });
-    }
-
-    // 异步更新缓存
-    function updateProjectCache(git) {
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: 'https://hpx.sankuai.com/api/open/getProjectUrlList?repoUrl=' + git,
-            onload: function(response) {
-                try {
-                    const data = JSON.parse(response.responseText);
-                    if (data.data && data.data.length > 0) {
-                        const project = data.data[data.data.length - 1];
-                        setCachedProject(git, project);
-                        logger('缓存已更新');
-                    }
-                } catch (e) {
-                    logger('更新缓存失败', e);
-                }
+            if (components.length >= 3) {
+                const url = `https://dev.sankuai.com/rest/api/2.0/projects/${components[1]}/repos/${components[2]}`;
+                $.get(url, (data) => {
+                    const sshLink = data.links.clone.find(link => link.name === 'ssh');
+                    resolve(sshLink ? sshLink.href : '');
+                }).fail(() => resolve(''));
+            } else {
+                resolve('');
             }
         });
-    }
+    };
 
     // 请求项目数据
-    function requestProjectData(git, callback) {
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: 'https://hpx.sankuai.com/api/open/getProjectUrlList?repoUrl=' + git,
-            onload: function(response) {
-                try {
-                    const data = JSON.parse(response.responseText);
-                    if (data.data && data.data.length > 0) {
-                        const project = data.data[data.data.length - 1];
-                        if (project.length > 0) {
-                            logger('获取新数据');
-                            setCachedProject(git, project);
-                            renderHPXButton(project);
-                            callback(true);
-                            return;
+    const requestProjectData = (git) => {
+        return new Promise((resolve) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: `${CONFIG.API_ENDPOINT}?repoUrl=${git}`,
+                onload: (response) => {
+                    try {
+                        const data = JSON.parse(response.responseText);
+                        if (data.data?.length > 0) {
+                            resolve(data.data[0]);
+                        } else {
+                            resolve(null);
                         }
+                    } catch (e) {
+                        logger('解析数据失败', e);
+                        resolve(null);
                     }
-                    // 如果没有获取到有效数据，移除loading按钮
-                    removeButton();
-                    callback(true);
-                } catch (e) {
-                    logger('请求数据失败', e);
-                    removeButton();
-                    callback(true);
+                },
+                onerror: () => {
+                    logger('网络请求失败');
+                    resolve(null);
                 }
-            },
-            onerror: function() {
-                logger('网络请求失败');
-                removeButton();
-                callback(true);
-            }
+            });
         });
-    }
+    };
+
+    // 获取当前节日
+    const getFestival = () => {
+        const date = new Date();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+
+        // 节日映射表
+        const festivals = {
+            'spring-festival': [1, 20, 2, 20], // 春节
+            'lantern-festival': [2, 24, 2, 26], // 元宵节
+            'halloween': [10, 29, 11, 2], // 万圣节
+            'christmas': [12, 20, 12, 26] // 圣诞节
+        };
+
+        for (const [name, [startMonth, startDay, endMonth, endDay]] of Object.entries(festivals)) {
+            if ((month === startMonth && day >= startDay) || (month === endMonth && day <= endDay)) {
+                return name;
+            }
+        }
+        return '';
+    };
 
     // 渲染加载中按钮
-    function renderLoadingButton() {
-        removeButton(); // 先移除已存在的按钮
-        $(".btn-box").prepend(`
-            <button id="zy_hpx_button" type="button" class="mtd-btn mtd-btn-primary">
+    const renderLoadingButton = () => {
+        removeButton();
+        $(CONFIG.CONTAINER_SELECTOR).prepend(`
+            <button id="${CONFIG.BUTTON_ID}" type="button" class="mtd-btn mtd-btn-primary btn-loading" disabled>
                 <span>
                     <div class="mtd-button-content">
                         <span class="mtdicon mtdicon-fast-forward"></span>
@@ -288,11 +269,11 @@
                 </span>
             </button>
         `);
-    }
+    };
 
     // 渲染按钮
-    function renderHPXButton(project) {
-        removeButton(); // 先移除已存在的按钮
+    const renderHPXButton = (project) => {
+        removeButton();
         const festival = getFestival();
         const festivalConfig = {
             'spring-festival': {
@@ -318,23 +299,24 @@
         };
 
         // 在首部插入Button
-        $(".btn-box").prepend(`
-            <button id="zy_hpx_button" type="button" class="mtd-btn mtd-btn-primary ${festival}">
+        const config = festivalConfig[festival] || { icon: '', text: 'Go to HyperloopX' };
+        $(CONFIG.CONTAINER_SELECTOR).prepend(`
+            <button id="${CONFIG.BUTTON_ID}" type="button" class="mtd-btn mtd-btn-primary ${festival}" title="${config.text}">
                 ${festival ? '<div class="festival-sparkle"></div>' : ''}
                 <span>
                     <div class="mtd-button-content">
                         <span class="mtdicon mtdicon-fast-forward"></span>
                         <span>Go to HyperloopX</span>
-                        ${festival ? `<span style="margin-left: 4px">${festivalConfig[festival].icon}</span>` : ''}
+                        ${festival ? `<span style="margin-left: 4px" class="festival-main-icon">${config.icon}</span>` : ''}
                     </div>
                 </span>
             </button>
         `);
 
-        $("#zy_hpx_button").click(function(){
+        // 绑定点击事件
+        $(`#${CONFIG.BUTTON_ID}`).on('click', function() {
             // 点击效果
             if (festival) {
-                const config = festivalConfig[festival];
                 const icon = config.icons[Math.floor(Math.random() * config.icons.length)];
                 const $icon = $(`<span class="festival-icon">${icon}</span>`);
                 $icon.css({
@@ -344,74 +326,131 @@
                     opacity: 0
                 });
                 $(this).append($icon);
-                setTimeout(() => $icon.remove(), 500);
+                $icon.animate({ opacity: 1 }, 200).animate({ opacity: 0 }, 300, () => $icon.remove());
             }
 
             // 打开窗口
-            window.open(project);
+            window.open(project, '_blank', 'noopener,noreferrer');
+        });
+    };
+
+    // 移除按钮
+    const removeButton = () => $(`#${CONFIG.BUTTON_ID}`).remove();
+
+    // 主要注入函数
+    async function inject() {
+        const $container = $(CONFIG.CONTAINER_SELECTOR);
+        if ($container.length === 0) {
+            logger('没有查到元素');
+            return false;
+        }
+        logger('查到元素');
+
+        // 渲染加载中按钮
+        renderLoadingButton();
+
+        try {
+            // 获取git地址
+            const git = await getGitAddress();
+            if (!git) {
+                removeButton();
+                return false;
+            }
+
+            // 检查缓存
+            const cachedProject = getCachedProject(git);
+            if (cachedProject) {
+                logger('使用缓存数据');
+                renderHPXButton(cachedProject);
+
+                // 异步更新缓存
+                updateProjectCache(git);
+                return true;
+            }
+
+            // 请求新数据
+            const project = await requestProjectData(git);
+            if (project) {
+                logger('获取新数据');
+                setCachedProject(git, project);
+                renderHPXButton(project);
+                return true;
+            }
+
+            // 未获取到数据，移除按钮
+            removeButton();
+            return false;
+        } catch (error) {
+            logger('注入失败', error);
+            removeButton();
+            return false;
+        }
+    }
+
+    // 异步更新缓存
+    const updateProjectCache = (git) => {
+        requestProjectData(git).then(project => {
+            if (project) {
+                setCachedProject(git, project);
+                logger('缓存已更新');
+            }
         });
     }
 
-    // 统一的按钮移除函数
-    function removeButton() {
-        $("#zy_hpx_button").remove();
-    }
+    // 页面加载完成后执行
+    function init() {
+        if (isTargetPage()) {
+            // 使用 MutationObserver 监听DOM变化
+            const observer = new MutationObserver((mutations) => {
+                const $container = $(CONFIG.CONTAINER_SELECTOR);
+                const $button = $(`#${CONFIG.BUTTON_ID}`);
 
-    // 查询git地址
-    function getGitAddress(callback) {
-        var str = 'dev.sankuai.com/code/repo-detail';
-        var index = window.location.toString().indexOf(str);
-        var reset = window.location.toString().substring(index + str.length);
-        var components = reset.split('/');
+                if ($container.length > 0 && $button.length === 0) {
+                    logger('检测到按钮容器');
+                    observer.disconnect();
+                    inject();
+                }
+            });
 
-        if (components.length >= 3) {
-            var url = 'https://dev.sankuai.com/rest/api/2.0/projects/' + components[1] + '/repos/' + components[2];
-            $.get(url, {}, function(data){
-                var git = '';
-                for (let i = 0; i < data.links.clone.length; i++) {
-                    let item = data.links.clone[i];
-                    if (item.name === 'ssh') {
-                        git = item.href;
-                        break;
+            // 立即检查是否已存在按钮容器
+            const $container = $(CONFIG.CONTAINER_SELECTOR);
+            if ($container.length > 0) {
+                logger('按钮容器已存在');
+                inject();
+            } else {
+                logger('等待按钮容器');
+                observer.observe(document.body, { childList: true, subtree: true });
+            }
+
+            // 添加页面URL变化监听（防抖处理）
+            let lastUrl = location.href;
+            const debouncedUrlChange = debounce(() => {
+                const url = location.href;
+                if (url !== lastUrl) {
+                    lastUrl = url;
+                    logger('URL 发生变化');
+                    if (isTargetPage()) {
+                        inject();
                     }
                 }
-                callback(git);
-            });
+            }, CONFIG.DEBOUNCE_DELAY);
+
+            new MutationObserver(debouncedUrlChange).observe(document, { subtree: true, childList: true });
         }
-        return '';
     }
 
-    // 获取当前节日
-    function getFestival() {
-        const date = new Date();
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-
-        // 农历新年判断（这里使用简化判断，实际应该使用农历计算）
-        if (month === 1 && day >= 20 || month === 2 && day <= 20) {
-            return 'spring-festival';
+    // 确保jQuery加载完成
+    function checkJQuery() {
+        if (typeof $ !== 'undefined' || typeof jQuery !== 'undefined') {
+            logger('jQuery 已加载');
+            init();
+        } else if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            logger('等待jQuery中...');
+            setTimeout(checkJQuery, 100);
         }
-
-        // 元宵节
-        if (month === 2 && day >= 24 && day <= 26) {
-            return 'lantern-festival';
-        }
-
-        // 万圣节
-        if (month === 10 && day >= 29 || month === 11 && day <= 2) {
-            return 'halloween';
-        }
-
-        // 圣诞节
-        if (month === 12 && day >= 20 && day <= 26) {
-            return 'christmas';
-        }
-
-        return '';
     }
 
-    // log
-    function logger(log) {
-        console.log("[go to HPX]", log);
-    }
+    // 检查jQuery并启动
+    checkJQuery();
+
 })();
