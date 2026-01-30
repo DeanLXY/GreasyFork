@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>12306监控面板测试</title>
+    <style>
+        body {
+            background: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 300px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .monitor-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .monitor-section h3 {
+            margin: 0 0 8px 0;
+            color: #4CAF50;
+            font-size: 1.1em;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .stat-item {
+            background: rgba(76, 175, 80, 0.1);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4CAF50;
+            display: block;
+        }
+        .stat-label {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 2px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .status-active { background-color: #4CAF50; }
+        .status-paused { background-color: #FF9800; }
+        .status-finished { background-color: #9E9E9E; }
+        .fatigue-warning {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+            color: #FF9800;
+            font-size: 0.9em;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="monitor-section">
+            <h3>状态统计</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-value" id="query-count">0</span>
+                    <span class="stat-label">查询次数</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="run-time">0秒</span>
+                    <span class="stat-label">运行时长</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">
+                        <span class="status-indicator status-active"></span>
+                        运行中
+                    </span>
+                    <span class="stat-label">监控状态</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="avg-interval">0秒</span>
+                    <span class="stat-label">平均间隔</span>
+                </div>
+            </div>
+            <div id="warning-container"></div>
+        </div>
+
+        <div style="text-align: center;">
+            <button onclick="addQuery()">模拟查询 (+1)</button>
+            <button onclick="addMultipleQueries()">模拟10次查询</button>
+            <button onclick="reset()">重置</button>
+        </div>
+    </div>
+
+    <script>
+        let queryCount = 0;
+        let startTime = Date.now();
+        let totalDuration = 0;
+
+        function updateDisplay() {
+            const runTime = Date.now() - startTime;
+            const runTimeText = formatDuration(runTime);
+            const avgInterval = queryCount > 0 ?
+                Math.round(totalDuration / queryCount / 1000) : 0;
+
+            document.getElementById('query-count').textContent = queryCount;
+            document.getElementById('run-time').textContent = runTimeText;
+            document.getElementById('avg-interval').textContent = avgInterval + '秒';
+
+            // 检查疲劳提醒
+            if (queryCount >= 60 && !document.getElementById('fatigue-warning')) {
+                const warningDiv = document.createElement('div');
+                warningDiv.id = 'fatigue-warning';
+                warningDiv.className = 'fatigue-warning';
+                warningDiv.innerHTML = `
+                    <strong>💡 温馨提示</strong><br>
+                    已查询${queryCount}次暂无结果，建议：<br>
+                    1. 增加监控车次数量<br>
+                    2. 考虑前后1-2天的日期<br>
+                    3. 先提交候补订单再继续监控
+                `;
+                document.getElementById('warning-container').appendChild(warningDiv);
+            }
+        }
+
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) {
+                return `${days}天 ${hours % 24}小时`;
+            } else if (hours > 0) {
+                return `${hours}小时 ${minutes % 60}分钟`;
+            } else if (minutes > 0) {
+                return `${minutes}分钟 ${seconds % 60}秒`;
+            } else {
+                return `${seconds}秒`;
+            }
+        }
+
+        function addQuery() {
+            queryCount++;
+            totalDuration += 5000; // 模拟5秒间隔
+            updateDisplay();
+        }
+
+        function addMultipleQueries() {
+            for (let i = 0; i < 10; i++) {
+                queryCount++;
+                totalDuration += 5000;
+            }
+            updateDisplay();
+        }
+
+        function reset() {
+            queryCount = 0;
+            startTime = Date.now();
+            totalDuration = 0;
+            document.getElementById('warning-container').innerHTML = '';
+            updateDisplay();
+        }
+
+        // 定时更新运行时长
+        setInterval(updateDisplay, 1000);
+        updateDisplay();
+    </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         12306火车查询脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.1.3
+// @version      1.2.0
 // @description  12306火车查询脚本, 遇到未放票的车次，可以通过监控提醒您。
 // @author       Dean
 // @match        https://kyfw.12306.cn/otn/leftTicket/init*
@@ -25,6 +25,15 @@
 	// 内部属性
 	var intervalId = null;
 	var logIndex = 0;
+
+	// 查询统计信息
+	var queryStats = {
+		startTime: Date.now(),
+		queryCount: 0,
+		lastQueryTime: 0,
+		avgQueryDuration: 0,
+		totalQueryDuration: 0
+	};
 
 	// 检查火车信息
 	var checkTrain = function (train_list) {
@@ -215,6 +224,51 @@
 					color: #4CAF50;
 					font-size: 1.1em;
 				}
+				.stats-grid {
+					display: grid;
+					grid-template-columns: 1fr 1fr;
+					gap: 8px;
+					margin-bottom: 8px;
+				}
+				.stat-item {
+					background: rgba(76, 175, 80, 0.1);
+					padding: 8px;
+					border-radius: 6px;
+					text-align: center;
+					border: 1px solid rgba(76, 175, 80, 0.2);
+				}
+				.stat-value {
+					font-size: 1.2em;
+					font-weight: bold;
+					color: #4CAF50;
+					display: block;
+				}
+				.stat-label {
+					font-size: 0.8em;
+					color: #888;
+					margin-top: 2px;
+				}
+				.status-indicator {
+					display: inline-block;
+					width: 10px;
+					height: 10px;
+					border-radius: 50%;
+					margin-right: 8px;
+					animation: pulse 2s infinite;
+				}
+				.status-active { background-color: #4CAF50; }
+				.status-paused { background-color: #FF9800; }
+				.status-finished { background-color: #9E9E9E; }
+				.fatigue-warning {
+					background: rgba(255, 152, 0, 0.1);
+					border: 1px solid rgba(255, 152, 0, 0.3);
+					border-radius: 6px;
+					padding: 10px;
+					margin-top: 10px;
+					color: #FF9800;
+					font-size: 0.9em;
+				}
+
 				.train-tag {
 					display: inline-block;
 					background-color: #4CAF50;
@@ -244,6 +298,7 @@
 				}
 			</style>
 			<div id="monitor-info" class="monitor-section"></div>
+			<div id="stats-section" class="monitor-section"></div>
 			<div id="train-list" class="monitor-section"></div>
 			<div id="next-refresh" class="monitor-section"></div>
 			<div id="log-container" class="monitor-section" style="max-height: 300px; overflow-y: auto;"></div>
@@ -500,6 +555,7 @@
 		if (fromStationText && toStationText && trainDateInput) {
 			updateMonitorInfo(fromStationText.value, toStationText.value, trainDateInput.value);
 			updateTrainList(train_list);
+			updateStatsSection(); // 新增：更新状态统计
 			updateMonitorDate(trainDateInput.value);
 			log(`监控已启动,正在查询指定车次`, true);
 			validCheckTrainStart()(train_list);
@@ -668,6 +724,79 @@
 		listDiv.innerHTML += "</div>";
 	}
 
+	// 更新状态统计区域
+	function updateStatsSection() {
+		const statsDiv = document.getElementById("stats-section");
+		const runTime = Date.now() - queryStats.startTime;
+		const runTimeText = formatDuration(runTime);
+		const avgInterval = queryStats.queryCount > 0 ?
+			Math.round(queryStats.totalQueryDuration / queryStats.queryCount / 1000) : 0;
+
+		statsDiv.innerHTML = `
+			<h3>状态统计</h3>
+			<div class="stats-grid">
+				<div class="stat-item">
+					<span class="stat-value" id="query-count">${queryStats.queryCount}</span>
+					<span class="stat-label">查询次数</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-value">${runTimeText}</span>
+					<span class="stat-label">运行时长</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-value">
+						<span class="status-indicator status-active"></span>
+						运行中
+					</span>
+					<span class="stat-label">监控状态</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-value">${avgInterval}秒</span>
+					<span class="stat-label">平均间隔</span>
+				</div>
+			</div>
+		`;
+
+		// 检查是否需要显示疲劳提醒
+		checkFatigueWarning();
+	}
+
+	// 格式化时长显示
+	function formatDuration(ms) {
+		const seconds = Math.floor(ms / 1000);
+		const minutes = Math.floor(seconds / 60);
+		const hours = Math.floor(minutes / 60);
+		const days = Math.floor(hours / 24);
+
+		if (days > 0) {
+			return `${days}天 ${hours % 24}小时`;
+		} else if (hours > 0) {
+			return `${hours}小时 ${minutes % 60}分钟`;
+		} else if (minutes > 0) {
+			return `${minutes}分钟 ${seconds % 60}秒`;
+		} else {
+			return `${seconds}秒`;
+		}
+	}
+
+	// 检查疲劳提醒
+	function checkFatigueWarning() {
+		const statsDiv = document.getElementById("stats-section");
+		if (queryStats.queryCount >= 60 && !document.getElementById("fatigue-warning")) {
+			const warningDiv = document.createElement("div");
+			warningDiv.id = "fatigue-warning";
+			warningDiv.className = "fatigue-warning";
+			warningDiv.innerHTML = `
+				<strong>💡 温馨提示</strong><br>
+				已查询${queryStats.queryCount}次暂无结果，建议：<br>
+				1. 增加监控车次数量<br>
+				2. 考虑前后1-2天的日期<br>
+				3. 先提交候补订单再继续监控
+			`;
+			statsDiv.appendChild(warningDiv);
+		}
+	}
+
 	// 更新下次刷新时间
 	function updateNextRefreshTime() {
 		const nextRefreshDiv = document.getElementById("next-refresh");
@@ -742,12 +871,27 @@
 	// 开始查询火车信息
 	function startCheckTrain(trainList) {
 		const queryTicket = document.getElementById("query_ticket");
-		log("尝试刷新车次列表...");
+		const queryStartTime = Date.now();
+
+		// 更新查询计数
+		queryStats.queryCount++;
+		queryStats.lastQueryTime = queryStartTime;
+
+		log(`${queryStats.queryCount}. 尝试刷新车次列表...`);
+
+		// 更新状态统计显示
+		if (document.getElementById("query-count")) {
+			document.getElementById("query-count").textContent = queryStats.queryCount;
+		}
+
 		if (queryTicket) {
 			queryTicket.click();
 			log("刷新车次列表成功 ✅");
 			setTimeout(() => {
 				checkTrain(trainList);
+				// 计算查询耗时
+				const queryDuration = Date.now() - queryStartTime;
+				queryStats.totalQueryDuration += queryDuration;
 			}, REFRESH_DELAY);
 		} else {
 			log("刷新车次列表失败,请检查后重试 ❌", true);
